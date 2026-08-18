@@ -1,0 +1,184 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>NASS HORLOGE D'AFRIQUE</title>
+  <style>
+    * { box-sizing: border-box; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; margin: 0; padding: 0; }
+    body { background-color: #f4f4f6; color: #1c1c1e; display: flex; justify-content: center; padding: 20px; }
+    .app-container { width: 100%; max-width: 420px; background: #fff; border-radius: 24px; padding: 20px; box-shadow: 0 8px 24px rgba(0,0,0,0.08); position: relative; min-height: 650px; }
+    
+    /* Header */
+    .header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
+    .header h1 { font-size: 22px; font-weight: 700; }
+    .add-btn { background: none; border: none; font-size: 32px; cursor: pointer; color: #007aff; line-height: 1; }
+
+    /* Cards */
+    .clock-list { display: flex; flex-direction: column; gap: 12px; }
+    .card { background: #f8f7f2; border-radius: 16px; padding: 16px; display: flex; justify-content: space-between; align-items: center; }
+    .city-name { font-size: 20px; font-weight: 700; }
+    .utc-tag { font-size: 11px; color: #8e8e93; vertical-align: super; }
+    .country-info { font-size: 13px; color: #666; margin-top: 2px; }
+    .sun-info { font-size: 11px; color: #8e8e93; margin-top: 6px; }
+    .time-display { font-size: 32px; font-weight: 700; text-align: right; }
+
+    /* Modal / Search */
+    .modal { display: none; position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: #fff; border-radius: 24px; padding: 20px; box-sizing: border-box; flex-direction: column; z-index: 10; }
+    .modal.active { display: flex; }
+    .modal-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; }
+    .search-bar { width: 100%; padding: 12px; border-radius: 10px; border: 1px solid #e5e5ea; background: #f2f2f7; font-size: 16px; margin-bottom: 15px; outline: none; }
+    .search-results { list-style: none; overflow-y: auto; flex-grow: 1; }
+    .search-item { display: flex; justify-content: space-between; align-items: center; padding: 12px 0; border-bottom: 1px solid #f2f2f7; }
+    .add-country-btn { background: #007aff; color: white; border: none; padding: 6px 14px; border-radius: 12px; cursor: pointer; font-weight: 600; }
+  </style>
+</head>
+<body>
+
+<div class="app-container">
+  <div class="header">
+    <h1>NASS HORLOGE D’AFRIQUE</h1>
+    <button class="add-btn" id="openModalBtn">+</button>
+  </div>
+
+  <div class="clock-list" id="clockList"></div>
+
+  <div class="modal" id="searchModal">
+    <div class="modal-header">
+      <h2>Ajouter un pays</h2>
+      <button id="closeModalBtn" style="background:none; border:none; color:#007aff; font-size:16px; cursor:pointer;">Fermer</button>
+    </div>
+    <input type="text" id="searchInput" class="search-bar" placeholder="Rechercher parmi les 54 pays...">
+    <ul class="search-results" id="searchResults"></ul>
+  </div>
+</div>
+
+<script>
+  const africanCountries = [
+    { city: "Alger", country: "Algérie", utc: "UTC+1", offset: 1, sunrise: "06:00", sunset: "19:30" },
+    { city: "Luanda", country: "Angola", utc: "UTC+1", offset: 1, sunrise: "06:15", sunset: "18:15" },
+    { city: "Cotonou", country: "Bénin", utc: "UTC+1", offset: 1, sunrise: "06:30", sunset: "18:45" },
+    { city: "Gaborone", country: "Botswana", utc: "UTC+2", offset: 2, sunrise: "06:40", sunset: "18:00" },
+    { city: "Ouagadougou", country: "Burkina Faso", utc: "UTC+0", offset: 0, sunrise: "06:00", sunset: "18:15" },
+    { city: "Gitega", country: "Burundi", utc: "UTC+2", offset: 2, sunrise: "06:00", sunset: "18:05" },
+    { city: "Praia", country: "Cap-Vert", utc: "UTC-1", offset: -1, sunrise: "06:30", sunset: "19:00" },
+    { city: "Yaoundé", country: "Cameroun", utc: "UTC+1", offset: 1, sunrise: "06:15", sunset: "18:25" },
+    { city: "Bangui", country: "Rép. Centrafricaine", utc: "UTC+1", offset: 1, sunrise: "05:55", sunset: "18:05" },
+    { city: "N'Djamena", country: "Tchad", utc: "UTC+1", offset: 1, sunrise: "05:45", sunset: "18:15" },
+    { city: "Moroni", country: "Comores", utc: "UTC+3", offset: 3, sunrise: "06:15", sunset: "18:00" },
+    { city: "Brazzaville", country: "Congo (Brazzaville)", utc: "UTC+1", offset: 1, sunrise: "06:05", sunset: "18:10" },
+    { city: "Kinshasa", country: "RDC (Congo-Kinshasa)", utc: "UTC+1", offset: 1, sunrise: "06:03", sunset: "18:02" },
+    { city: "Abidjan", country: "Côte d'Ivoire", utc: "UTC+0", offset: 0, sunrise: "06:10", sunset: "18:30" },
+    { city: "Djibouti", country: "Djibouti", utc: "UTC+3", offset: 3, sunrise: "05:50", sunset: "18:20" },
+    { city: "Le Caire", country: "Égypte", utc: "UTC+2", offset: 2, sunrise: "05:20", sunset: "18:40" },
+    { city: "Malabo", country: "Guinée Équatoriale", utc: "UTC+1", offset: 1, sunrise: "06:20", sunset: "18:25" },
+    { city: "Asmara", country: "Érythrée", utc: "UTC+3", offset: 3, sunrise: "06:10", sunset: "18:30" },
+    { city: "Mbabane", country: "Eswatini", utc: "UTC+2", offset: 2, sunrise: "06:25", sunset: "17:35" },
+    { city: "Addis-Abeba", country: "Éthiopie", utc: "UTC+3", offset: 3, sunrise: "06:15", sunset: "18:30" },
+    { city: "Libreville", country: "Gabon", utc: "UTC+1", offset: 1, sunrise: "06:15", sunset: "18:20" },
+    { city: "Banjul", country: "Gambie", utc: "UTC+0", offset: 0, sunrise: "06:40", sunset: "19:10" },
+    { city: "Accra", country: "Ghana", utc: "UTC+0", offset: 0, sunrise: "06:00", sunset: "18:15" },
+    { city: "Conakry", country: "Guinée", utc: "UTC+0", offset: 0, sunrise: "06:30", sunset: "18:50" },
+    { city: "Bissau", country: "Guinée-Bissau", utc: "UTC+0", offset: 0, sunrise: "06:45", sunset: "19:15" },
+    { city: "Nairobi", country: "Kenya", utc: "UTC+3", offset: 3, sunrise: "06:30", sunset: "18:35" },
+    { city: "Maseru", country: "Lesotho", utc: "UTC+2", offset: 2, sunrise: "06:40", sunset: "17:40" },
+    { city: "Monrovia", country: "Liberia", utc: "UTC+0", offset: 0, sunrise: "06:25", sunset: "18:45" },
+    { city: "Tripoli", country: "Libye", utc: "UTC+2", offset: 2, sunrise: "06:05", sunset: "19:40" },
+    { city: "Antananarivo", country: "Madagascar", utc: "UTC+3", offset: 3, sunrise: "06:10", sunset: "17:30" },
+    { city: "Lilongwe", country: "Malawi", utc: "UTC+2", offset: 2, sunrise: "05:55", sunset: "17:25" },
+    { city: "Bamako", country: "Mali", utc: "UTC+0", offset: 0, sunrise: "06:15", sunset: "18:40" },
+    { city: "Nouakchott", country: "Mauritanie", utc: "UTC+0", offset: 0, sunrise: "06:35", sunset: "19:15" },
+    { city: "Port-Louis", country: "Maurice", utc: "UTC+4", offset: 4, sunrise: "06:30", sunset: "17:45" },
+    { city: "Rabat", country: "Maroc", utc: "UTC+1", offset: 1, sunrise: "06:50", sunset: "20:05" },
+    { city: "Maputo", country: "Mozambique", utc: "UTC+2", offset: 2, sunrise: "06:10", sunset: "17:15" },
+    { city: "Windhoek", country: "Namibie", utc: "UTC+2", offset: 2, sunrise: "07:05", sunset: "18:30" },
+    { city: "Niamey", country: "Niger", utc: "UTC+1", offset: 1, sunrise: "06:15", sunset: "18:40" },
+    { city: "Abuja", country: "Nigéria", utc: "UTC+1", offset: 1, sunrise: "06:25", sunset: "18:50" },
+    { city: "Kigali", country: "Rwanda", utc: "UTC+2", offset: 2, sunrise: "06:00", sunset: "18:05" },
+    { city: "São Tomé", country: "Sao Tomé-et-Principe", utc: "UTC+0", offset: 0, sunrise: "05:55", sunset: "18:00" },
+    { city: "Dakar", country: "Sénégal", utc: "UTC+0", offset: 0, sunrise: "06:45", sunset: "19:10" },
+    { city: "Victoria", country: "Seychelles", utc: "UTC+4", offset: 4, sunrise: "06:15", sunset: "18:20" },
+    { city: "Freetown", country: "Sierra Leone", utc: "UTC+0", offset: 0, sunrise: "06:35", sunset: "18:55" },
+    { city: "Mogadiscio", country: "Somalie", utc: "UTC+3", offset: 3, sunrise: "05:50", sunset: "17:55" },
+    { city: "Prétoria", country: "Afrique du Sud", utc: "UTC+2", offset: 2, sunrise: "06:35", sunset: "17:45" },
+    { city: "Juba", country: "Soudan du Sud", utc: "UTC+2", offset: 2, sunrise: "06:05", sunset: "18:15" },
+    { city: "Khartoum", country: "Soudan", utc: "UTC+2", offset: 2, sunrise: "05:35", sunset: "18:15" },
+    { city: "Dodoma", country: "Tanzanie", utc: "UTC+3", offset: 3, sunrise: "06:35", sunset: "18:30" },
+    { city: "Lomé", country: "Togo", utc: "UTC+0", offset: 0, sunrise: "05:55", sunset: "18:10" },
+    { city: "Tunis", country: "Tunisie", utc: "UTC+1", offset: 1, sunrise: "05:40", sunset: "19:10" },
+    { city: "Kampala", country: "Ouganda", utc: "UTC+3", offset: 3, sunrise: "06:40", sunset: "18:45" },
+    { city: "Lusaka", country: "Zambie", utc: "UTC+2", offset: 2, sunrise: "06:15", sunset: "17:40" },
+    { city: "Harare", country: "Zimbabwe", utc: "UTC+2", offset: 2, sunrise: "06:10", sunset: "17:30" }
+  ];
+
+  let activeClocks = [africanCountries[2]]; // Bénin (Cotonou) par défaut
+
+  const modal = document.getElementById('searchModal');
+  const openBtn = document.getElementById('openModalBtn');
+  const closeBtn = document.getElementById('closeModalBtn');
+  const searchInput = document.getElementById('searchInput');
+  const resultsList = document.getElementById('searchResults');
+  const clockList = document.getElementById('clockList');
+
+  openBtn.addEventListener('click', () => { modal.classList.add('active'); renderSearchList(africanCountries); });
+  closeBtn.addEventListener('click', () => { modal.classList.remove('active'); searchInput.value = ''; });
+
+  function getTimeForOffset(offset) {
+    const now = new Date();
+    const utcNow = new Date(now.getTime() + (now.getTimezoneOffset() * 60000));
+    const targetTime = new Date(utcNow.getTime() + (offset * 3600000));
+    return targetTime.toTimeString().substring(0, 5);
+  }
+
+  function updateClocks() {
+    clockList.innerHTML = '';
+    activeClocks.forEach(data => {
+      const card = document.createElement('div');
+      card.className = 'card';
+      card.innerHTML = `
+        <div>
+          <div class="city-name">${data.city} <span class="utc-tag">${data.utc}</span></div>
+          <div class="country-info">Aujourd'hui / ${data.country}</div>
+          <div class="sun-info">🌅 ${data.sunrise} &nbsp; 🌇 ${data.sunset}</div>
+        </div>
+        <div class="time-display">${getTimeForOffset(data.offset)}</div>
+      `;
+      clockList.appendChild(card);
+    });
+  }
+
+  function renderSearchList(items) {
+    resultsList.innerHTML = '';
+    items.forEach(item => {
+      const li = document.createElement('li');
+      li.className = 'search-item';
+      li.innerHTML = `
+        <div>
+          <strong>${item.city}</strong> (${item.country})
+          <div style="font-size:12px; color:#8e8e93;">${item.utc}</div>
+        </div>
+        <button class="add-country-btn">Ajouter</button>
+      `;
+      li.querySelector('button').addEventListener('click', () => {
+        if(!activeClocks.some(c => c.city === item.city)) activeClocks.push(item);
+        updateClocks();
+        modal.classList.remove('active');
+        searchInput.value = '';
+      });
+      resultsList.appendChild(li);
+    });
+  }
+
+  searchInput.addEventListener('input', (e) => {
+    const query = e.target.value.toLowerCase();
+    renderSearchList(africanCountries.filter(c => 
+      c.city.toLowerCase().includes(query) || c.country.toLowerCase().includes(query)
+    ));
+  });
+
+  updateClocks();
+  setInterval(updateClocks, 1000);
+</script>
+
+</body>
+</html>
